@@ -1,6 +1,7 @@
 import json
 import secrets
 import uuid
+from datetime import datetime
 from typing import Optional
 
 from sqlmodel import select
@@ -9,51 +10,15 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from .crypto import decrypt_data, encrypt_data
 from .models import (
-    Account, AccountToken, Credential, Organization,
-    OrganizationMember, ServiceTemplate,
+    Account, AccountToken, Credential, OAuthState, OrgSettings,
+    Organization, OrganizationMember, ServiceTemplate,
 )
 
 # ── Builtin service templates ─────────────────────────────────────────────────
+# Only generic types — service-specific integrations (AWS, GitHub, etc.)
+# should be configured as automated integrations, not manual credentials.
 
 BUILTIN_TEMPLATES = [
-    {
-        "name": "AWS",
-        "service_slug": "aws",
-        "credential_type": "api_custom",
-        "fields_schema": [
-            {"key": "access_key_id", "label": "Access Key ID", "required": True, "secret": False, "type": "text"},
-            {"key": "secret_access_key", "label": "Secret Access Key", "required": True, "secret": True, "type": "password"},
-            {"key": "region", "label": "Region", "required": False, "secret": False, "type": "text"},
-            {"key": "account_id", "label": "Account ID", "required": False, "secret": False, "type": "text"},
-        ],
-    },
-    {
-        "name": "GitHub",
-        "service_slug": "github",
-        "credential_type": "api_custom",
-        "fields_schema": [
-            {"key": "token", "label": "Personal Access Token", "required": True, "secret": True, "type": "password"},
-            {"key": "username", "label": "Username", "required": False, "secret": False, "type": "text"},
-        ],
-    },
-    {
-        "name": "GitLab",
-        "service_slug": "gitlab",
-        "credential_type": "api_custom",
-        "fields_schema": [
-            {"key": "token", "label": "Personal Access Token", "required": True, "secret": True, "type": "password"},
-            {"key": "username", "label": "Username", "required": False, "secret": False, "type": "text"},
-        ],
-    },
-    {
-        "name": "Slack",
-        "service_slug": "slack",
-        "credential_type": "api_custom",
-        "fields_schema": [
-            {"key": "bot_token", "label": "Bot Token", "required": True, "secret": True, "type": "password"},
-            {"key": "workspace", "label": "Workspace", "required": False, "secret": False, "type": "text"},
-        ],
-    },
     {
         "name": "SSH Key",
         "service_slug": "ssh",
@@ -83,6 +48,27 @@ BUILTIN_TEMPLATES = [
         "credential_type": "api_custom",
         "fields_schema": [],  # Admin defines fields at creation time
     },
+    {
+        "name": "OAuth 2.0",
+        "service_slug": "oauth2",
+        "credential_type": "oauth2",
+        "fields_schema": [
+            {"key": "client_id", "label": "Client ID", "required": True, "secret": False, "type": "text"},
+            {"key": "client_secret", "label": "Client Secret", "required": True, "secret": True, "type": "password"},
+            {"key": "auth_url", "label": "Authorization URL", "required": True, "secret": False, "type": "text"},
+            {"key": "token_url", "label": "Token URL", "required": True, "secret": False, "type": "text"},
+            {"key": "scopes", "label": "Scopes (space-separated)", "required": False, "secret": False, "type": "text"},
+        ],
+    },
+    {
+        "name": "LDAP",
+        "service_slug": "ldap",
+        "credential_type": "ldap",
+        "fields_schema": [
+            {"key": "username", "label": "LDAP Username / DN", "required": True, "secret": False, "type": "text"},
+            {"key": "password", "label": "Password", "required": True, "secret": True, "type": "password"},
+        ],
+    },
 ]
 
 
@@ -100,15 +86,9 @@ async def create_account(session: AsyncSession, email: str, name: str, hashed_pa
     return account
 
 
-async def account_count(session: AsyncSession) -> int:
-    from sqlalchemy import func
-    result = await session.execute(select(func.count()).select_from(Account))
-    return result.scalar()
-
-
 async def get_account_by_email(session: AsyncSession, email: str) -> Account | None:
-    result = await session.execute(select(Account).where(Account.email == email))
-    return result.scalars().one_or_none()
+    result = await session.exec(select(Account).where(Account.email == email))
+    return result.one_or_none()
 
 
 async def get_account_by_id(session: AsyncSession, account_id: str) -> Account | None:
@@ -117,26 +97,26 @@ async def get_account_by_id(session: AsyncSession, account_id: str) -> Account |
 
 async def create_account_token(session: AsyncSession, account_id: str) -> str:
     token = secrets.token_urlsafe(32)
-    account_token = AccountToken(token=token, account_id=account_id)
-    session.add(account_token)
+    session.add(AccountToken(token=token, account_id=account_id))
     await session.commit()
     return token
 
 
 async def get_account_by_token(session: AsyncSession, token: str) -> Account | None:
-    statement = select(Account).join(AccountToken).where(AccountToken.token == token)
-    result = await session.execute(statement)
-    return result.scalars().one_or_none()
+    result = await session.exec(
+        select(Account).join(AccountToken).where(AccountToken.token == token)
+    )
+    return result.one_or_none()
 
 
 # ── Organization ──────────────────────────────────────────────────────────────
 
 async def create_organization(session: AsyncSession, name: str, owner_id: str) -> Organization:
-    organization = Organization(id=str(uuid.uuid4()), name=name, owner_id=owner_id)
-    session.add(organization)
+    org = Organization(id=str(uuid.uuid4()), name=name, owner_id=owner_id)
+    session.add(org)
     await session.commit()
-    await session.refresh(organization)
-    return organization
+    await session.refresh(org)
+    return org
 
 
 async def get_organization_by_id(session: AsyncSession, organization_id: str) -> Organization | None:
@@ -166,8 +146,10 @@ async def create_organization_member(
 
 
 async def get_organization_members(session: AsyncSession, organization_id: str) -> list[OrganizationMember]:
-    result = await session.execute(select(OrganizationMember).where(OrganizationMember.organization_id == organization_id))
-    return list(result.scalars().all())
+    result = await session.exec(
+        select(OrganizationMember).where(OrganizationMember.organization_id == organization_id)
+    )
+    return list(result.all())
 
 
 async def get_member_by_id(session: AsyncSession, member_id: str) -> OrganizationMember | None:
@@ -175,8 +157,36 @@ async def get_member_by_id(session: AsyncSession, member_id: str) -> Organizatio
 
 
 async def get_member_by_account_id(session: AsyncSession, account_id: str) -> OrganizationMember | None:
-    result = await session.execute(select(OrganizationMember).where(OrganizationMember.account_id == account_id))
-    return result.scalars().first()
+    result = await session.exec(
+        select(OrganizationMember).where(OrganizationMember.account_id == account_id)
+    )
+    return result.first()
+
+
+# ── Org Settings ──────────────────────────────────────────────────────────────
+
+async def get_org_settings(session: AsyncSession, organization_id: str) -> OrgSettings | None:
+    result = await session.exec(
+        select(OrgSettings).where(OrgSettings.organization_id == organization_id)
+    )
+    return result.first()
+
+
+async def upsert_org_ldap_config(session: AsyncSession, organization_id: str, ldap_config: dict) -> OrgSettings:
+    settings = await get_org_settings(session, organization_id)
+    if settings:
+        settings.ldap_config = encrypt_data(ldap_config)
+        settings.updated_at = datetime.utcnow()
+    else:
+        settings = OrgSettings(
+            id=str(uuid.uuid4()),
+            organization_id=organization_id,
+            ldap_config=encrypt_data(ldap_config),
+        )
+    session.add(settings)
+    await session.commit()
+    await session.refresh(settings)
+    return settings
 
 
 # ── Service Templates ─────────────────────────────────────────────────────────
@@ -271,6 +281,14 @@ async def create_credential(
     return credential
 
 
+async def update_credential_data(session: AsyncSession, credential: Credential, new_data: dict) -> Credential:
+    credential.encrypted_data = encrypt_data(new_data)
+    session.add(credential)
+    await session.commit()
+    await session.refresh(credential)
+    return credential
+
+
 async def get_credentials_for_member(session: AsyncSession, member_id: str) -> list[Credential]:
     result = await session.exec(select(Credential).where(Credential.member_id == member_id))
     return list(result.all())
@@ -285,10 +303,26 @@ async def delete_credential(session: AsyncSession, credential: Credential) -> No
     await session.commit()
 
 
+# ── OAuth State ───────────────────────────────────────────────────────────────
+
+async def create_oauth_state(session: AsyncSession, credential_id: str) -> str:
+    state = secrets.token_urlsafe(32)
+    session.add(OAuthState(state=state, credential_id=credential_id))
+    await session.commit()
+    return state
+
+
+async def consume_oauth_state(session: AsyncSession, state: str) -> OAuthState | None:
+    obj = await session.get(OAuthState, state)
+    if obj:
+        await session.delete(obj)
+        await session.commit()
+    return obj
+
+
 # ── Helper: build CredentialResponse ─────────────────────────────────────────
 
 def build_credential_response(credential: Credential, template: ServiceTemplate | None) -> dict:
-    """Decrypt and reshape a Credential into response-ready dict."""
     fields_data = decrypt_data(credential.encrypted_data)
 
     if template:
@@ -309,11 +343,15 @@ def build_credential_response(credential: Credential, template: ServiceTemplate 
             for f in schema
         ]
     else:
-        # No schema — surface all stored keys as-is
         field_values = [
             {"key": k, "label": k, "value": str(v), "secret": False}
             for k, v in fields_data.items()
+            if not k.startswith("_oauth_")  # hide internal OAuth token fields
         ]
+
+    oauth_authorized = None
+    if credential.credential_type == "oauth2":
+        oauth_authorized = bool(fields_data.get("_oauth_access_token"))
 
     return {
         "id": credential.id,
@@ -327,5 +365,5 @@ def build_credential_response(credential: Credential, template: ServiceTemplate 
         "created_at": credential.created_at,
         "fields": field_values,
         "notes": credential.notes,
+        "oauth_authorized": oauth_authorized,
     }
->>>>>>> 441cf00 (feat(backend): credential vault with templates, encryption and member assignment)

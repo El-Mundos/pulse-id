@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from ..auth import get_current_user
 from ..crud import (
@@ -22,6 +22,14 @@ async def create_organization_endpoint(
     session: AsyncSession = Depends(get_session),
 ):
     organization = await create_organization(session, body.name, user.id)
+    await create_organization_member(
+        session,
+        organization_id=organization.id,
+        name=user.name,
+        email=user.email,
+        role="Owner",
+        account_id=user.id,
+    )
     return organization
 
 
@@ -73,5 +81,5 @@ async def get_organization_endpoint(
         id=organization.id,
         name=organization.name,
         owner_id=organization.owner_id,
-        members=members,
+        members=[MemberResponse.model_validate(m, from_attributes=True) for m in members],
     )

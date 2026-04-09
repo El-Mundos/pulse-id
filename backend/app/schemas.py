@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, EmailStr, Field
 
@@ -52,10 +52,9 @@ class OrganizationDetail(OrganizationResponse):
     members: List[MemberResponse] = Field(default_factory=list)
 
 
-# ── Credentials ──────────────────────────────────────────────────────────────
+# ── Credentials ───────────────────────────────────────────────────────────────
 
 class FieldDef(BaseModel):
-    """Schema definition for a single credential field."""
     key: str
     label: str
     required: bool = False
@@ -82,10 +81,9 @@ class CustomTemplateCreate(BaseModel):
 
 class CredentialCreate(BaseModel):
     name: str
-    credential_type: str  # "api_custom" | "manual" | "ssh"
+    credential_type: str
     template_id: Optional[str] = None
-    fields: dict  # {field_key: value}
-    # Required when credential_type=="api_custom" and no template_id
+    fields: dict
     custom_fields_schema: Optional[List[FieldDef]] = None
     notes: Optional[str] = None
 
@@ -109,3 +107,65 @@ class CredentialResponse(BaseModel):
     created_at: datetime
     fields: List[CredentialFieldValue]
     notes: Optional[str] = None
+    # OAuth-specific: whether the token has been obtained
+    oauth_authorized: Optional[bool] = None
+
+
+# ── LDAP ──────────────────────────────────────────────────────────────────────
+
+class LdapConfig(BaseModel):
+    host: str
+    port: int = 389
+    base_dn: str
+    bind_dn: str
+    bind_password: str
+    use_ssl: bool = False
+    user_search_filter: str = "(objectClass=person)"
+    user_attributes: List[str] = Field(default_factory=lambda: ["cn", "mail", "sAMAccountName", "uid"])
+
+
+class LdapConfigResponse(BaseModel):
+    host: str
+    port: int
+    base_dn: str
+    bind_dn: str
+    use_ssl: bool
+    user_search_filter: str
+    user_attributes: List[str]
+    # bind_password intentionally omitted
+
+
+class LdapTestResult(BaseModel):
+    success: bool
+    message: str
+    user_count: Optional[int] = None
+    sample_users: Optional[List[Dict[str, Any]]] = None
+
+
+class LdapAuthRequest(BaseModel):
+    username: str
+    password: str
+    username_attr: str = "sAMAccountName"  # or "uid" for OpenLDAP
+
+
+# ── OAuth 2.0 ─────────────────────────────────────────────────────────────────
+
+class OAuthInitiateResponse(BaseModel):
+    authorization_url: str
+    state: str
+
+
+class OAuthTokenInfo(BaseModel):
+    authorized: bool
+    token_type: Optional[str] = None
+    scope: Optional[str] = None
+    expires_at: Optional[str] = None
+
+
+# ── Org Settings ──────────────────────────────────────────────────────────────
+
+class OrgSettingsResponse(BaseModel):
+    organization_id: str
+    ldap_configured: bool
+    ldap_config: Optional[LdapConfigResponse] = None
+    updated_at: Optional[datetime] = None

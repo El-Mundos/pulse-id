@@ -2,7 +2,7 @@ from typing import Optional
 
 import bcrypt
 from fastapi import Depends, Header, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from .crud import get_account_by_token
 from .db import get_session
