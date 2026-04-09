@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.env
+
+# SQLModel / DB
+*.sqlite3
+
+# Node / frontend
+frontend/.next/
+frontend/node_modules/
+frontend/.turbo/
+frontend/.cache/
+
+# Backend nested repo
+backend/.git/
+
+# Docker
+.dockerignore
