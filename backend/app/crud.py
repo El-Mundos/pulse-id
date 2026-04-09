@@ -21,8 +21,8 @@ async def create_account(session: AsyncSession, email: str, name: str, hashed_pa
 
 
 async def get_account_by_email(session: AsyncSession, email: str) -> Account | None:
-    result = await session.exec(select(Account).where(Account.email == email))
-    return result.scalar_one_or_none()
+    result = await session.execute(select(Account).where(Account.email == email))
+    return result.scalars().one_or_none()
 
 
 async def get_account_by_id(session: AsyncSession, account_id: str) -> Account | None:
@@ -40,8 +40,8 @@ async def create_account_token(session: AsyncSession, account_id: str) -> str:
 
 async def get_account_by_token(session: AsyncSession, token: str) -> Account | None:
     statement = select(Account).join(AccountToken).where(AccountToken.token == token)
-    result = await session.exec(statement)
-    return result.scalar_one_or_none()
+    result = await session.execute(statement)
+    return result.scalars().one_or_none()
 
 
 async def create_organization(session: AsyncSession, name: str, owner_id: str) -> Organization:
@@ -80,5 +80,5 @@ async def create_organization_member(
 
 
 async def get_organization_members(session: AsyncSession, organization_id: str) -> list[OrganizationMember]:
-    result = await session.exec(select(OrganizationMember).where(OrganizationMember.organization_id == organization_id))
-    return result.all()
+    result = await session.execute(select(OrganizationMember).where(OrganizationMember.organization_id == organization_id))
+    return result.scalars().all()
