@@ -83,11 +83,23 @@ pulse-id/
 #### Using Docker (Recommended)
 
 ```bash
-# Start all services (PostgreSQL, Backend, Frontend)
-docker-compose up --build
+# Quick start all services
+./dev.sh up
 
-# Or run in background
-docker-compose up -d --build
+# Or start in background
+./dev.sh up-d
+
+# Check status
+./dev.sh status
+
+# View logs
+./dev.sh logs
+
+# Stop services
+./dev.sh down
+
+# Clean up (removes volumes too)
+./dev.sh clean
 ```
 
 Access the applications:
