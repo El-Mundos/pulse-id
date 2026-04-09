@@ -28,7 +28,8 @@ async function request<T>(
   return res.json();
 }
 
-// Auth
+// ── Auth ──────────────────────────────────────────────────────────────────────
+
 export function login(email: string, password: string) {
   return request<{ access_token: string; user_id: string; email: string; name: string }>(
     "/auth/login",
@@ -47,7 +48,8 @@ export function getMe() {
   return request<{ id: string; email: string; name: string }>("/auth/me");
 }
 
-// Orgs
+// ── Orgs ──────────────────────────────────────────────────────────────────────
+
 export function createOrg(name: string) {
   return request<{ id: string; name: string; owner_id: string }>(
     "/orgs",
@@ -77,4 +79,93 @@ export interface Member {
   email: string;
   role: string;
   account_id: string | null;
+}
+
+// ── Credential Templates ──────────────────────────────────────────────────────
+
+export interface FieldDef {
+  key: string;
+  label: string;
+  required: boolean;
+  secret: boolean;
+  type: "text" | "password" | "textarea";
+}
+
+export interface ServiceTemplate {
+  id: string;
+  name: string;
+  service_slug: string;
+  credential_type: "api_custom" | "manual" | "ssh";
+  fields_schema: FieldDef[];
+  is_builtin: boolean;
+  organization_id: string | null;
+}
+
+export function getTemplates(orgId: string) {
+  return request<ServiceTemplate[]>(`/orgs/${orgId}/templates`);
+}
+
+export function createTemplate(orgId: string, body: {
+  name: string;
+  service_slug: string;
+  credential_type: string;
+  fields_schema: FieldDef[];
+}) {
+  return request<ServiceTemplate>(`/orgs/${orgId}/templates`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+// ── Credentials ───────────────────────────────────────────────────────────────
+
+export interface CredentialFieldValue {
+  key: string;
+  label: string;
+  value: string;
+  secret: boolean;
+}
+
+export interface Credential {
+  id: string;
+  name: string;
+  credential_type: string;
+  template_id: string | null;
+  template_name: string | null;
+  organization_id: string;
+  member_id: string;
+  created_by_id: string;
+  created_at: string;
+  fields: CredentialFieldValue[];
+  notes: string | null;
+}
+
+export function getMemberCredentials(orgId: string, memberId: string) {
+  return request<Credential[]>(`/orgs/${orgId}/members/${memberId}/credentials`);
+}
+
+export function addCredential(
+  orgId: string,
+  memberId: string,
+  body: {
+    name: string;
+    credential_type: string;
+    template_id?: string;
+    fields: Record<string, string>;
+    custom_fields_schema?: FieldDef[];
+    notes?: string;
+  }
+) {
+  return request<Credential>(`/orgs/${orgId}/members/${memberId}/credentials`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function deleteCredential(orgId: string, credentialId: string) {
+  return request<void>(`/orgs/${orgId}/credentials/${credentialId}`, { method: "DELETE" });
+}
+
+export function getMyCredentials() {
+  return request<Credential[]>("/me/credentials");
 }
