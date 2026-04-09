@@ -9,13 +9,19 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [checking, setChecking] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Redirect to setup if not configured yet
-    getSetupStatus().then((s) => {
-      if (s.needs_setup) window.location.href = "/setup";
-    }).catch(() => {});
+    getSetupStatus()
+      .then((s) => {
+        if (s.needs_setup) {
+          window.location.href = "/setup";
+        } else {
+          setChecking(false);
+        }
+      })
+      .catch(() => setChecking(false));
   }, []);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -32,6 +38,17 @@ export default function LoginPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  if (checking) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#080d19]">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-8 h-8 rounded-full border-2 border-indigo-500/30 border-t-indigo-500 animate-spin" />
+          <p className="text-slate-500 text-sm font-mono">Connecting…</p>
+        </div>
+      </div>
+    );
   }
 
   return (

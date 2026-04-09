@@ -7,9 +7,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-pulse_id}
       POSTGRES_USER: ${POSTGRES_USER:-pulse_id}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    # Bind to localhost only — not exposed publicly
-    ports:
-      - "127.0.0.1:5432:5432"
+    # Not exposed to host — backend reaches it via Docker internal network
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
