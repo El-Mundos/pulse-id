@@ -20,6 +20,12 @@ async def create_account(session: AsyncSession, email: str, name: str, hashed_pa
     return account
 
 
+async def account_count(session: AsyncSession) -> int:
+    from sqlalchemy import func
+    result = await session.execute(select(func.count()).select_from(Account))
+    return result.scalar()
+
+
 async def get_account_by_email(session: AsyncSession, email: str) -> Account | None:
     result = await session.execute(select(Account).where(Account.email == email))
     return result.scalars().one_or_none()
