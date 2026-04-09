@@ -20,8 +20,8 @@ services:
 
   backend:
     build:
-      context: .
-      dockerfile: ./backend/Dockerfile
+      context: ./backend
+      dockerfile: Dockerfile
     container_name: pulse_id_backend
     ports:
       - "8000:8000"
@@ -47,8 +47,9 @@ services:
       - backend
     volumes:
       - ./frontend:/app
-      - /app/node_modules
-    command: bun run dev
+      - frontend_node_modules:/app/node_modules
+    command: sh -c "bun install && bun run dev"
 
 volumes:
   postgres_data:
+  frontend_node_modules:
