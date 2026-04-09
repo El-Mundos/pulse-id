@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from ..auth import get_current_user, get_password_hash, verify_password
 from ..crud import create_account, create_account_token, get_account_by_email
