@@ -2,3 +2,6 @@ fastapi
 uvicorn[standard]
 sqlmodel
 asyncpg
+aiosqlite
+python-dotenv
+bcrypt
