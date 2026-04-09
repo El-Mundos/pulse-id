@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from ..auth import get_current_user, get_password_hash, verify_password
-from ..crud import account_count, create_account, create_account_token, get_account_by_email
+from ..crud import create_account, create_account_token, get_account_by_email
 from ..db import get_session
 from ..schemas import AccountCreate, AccountLogin, AuthResponse
 
@@ -11,11 +11,6 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 @router.post("/register", response_model=AuthResponse)
 async def register_account(body: AccountCreate, session: AsyncSession = Depends(get_session)):
-    if await account_count(session) > 0:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Registration is disabled. Use the admin panel to invite users.",
-        )
     existing = await get_account_by_email(session, body.email)
     if existing:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered")

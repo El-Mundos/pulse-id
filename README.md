@@ -82,6 +82,26 @@ pulse-id/
 
 #### Using Docker (Recommended)
 
+```bash
+# Quick start all services
+./dev.sh up
+
+# Or start in background
+./dev.sh up-d
+
+# Check status
+./dev.sh status
+
+# View logs
+./dev.sh logs
+
+# Stop services
+./dev.sh down
+
+# Clean up (removes volumes too)
+./dev.sh clean
+```
+
 Access the applications:
 - Frontend: http://localhost:3000
 - Backend API: http://localhost:8000
