@@ -49,17 +49,25 @@ Pulse ID is built security-first:
 
 ```
 pulse-id/
-├── frontend/          # Next.js application
-│   ├── app/           # App Router pages
-│   └── components/    # Shared UI components
-├── backend/           # FastAPI application
+├── frontend/              # Next.js application
+│   ├── app/               # App Router pages
+│   ├── components/        # Shared UI components
+│   ├── Dockerfile         # Frontend Docker image
+│   └── package.json
+├── backend/               # FastAPI application
 │   ├── app/
-│   │   ├── api/       # Route handlers
-│   │   ├── core/      # Vault, audit log, JWT logic
-│   │   ├── models/    # SQLAlchemy models
-│   │   └── services/  # Orchestration engine
-│   └── alembic/       # DB migrations
-└── docker-compose.yml
+│   │   ├── routers/       # API route handlers
+│   │   ├── models.py      # SQLModel database models
+│   │   ├── schemas.py     # Pydantic schemas
+│   │   ├── crud.py        # Database operations
+│   │   ├── auth.py        # Authentication utilities
+│   │   └── db.py          # Database configuration
+│   ├── main.py            # FastAPI app entrypoint
+│   ├── requirements.txt   # Python dependencies
+│   ├── Dockerfile         # Backend Docker image
+│   └── .env.example       # Environment variables template
+├── docker-compose.yml     # Multi-service orchestration
+└── README.md
 ```
 
 ## Getting Started
@@ -67,24 +75,41 @@ pulse-id/
 ### Prerequisites
 
 - Docker and Docker Compose
-- Node.js 20+
+- Node.js 20+ (with Bun)
 - Python 3.11+
 
 ### Development
 
+#### Using Docker (Recommended)
+
+```bash
+# Start all services (PostgreSQL, Backend, Frontend)
+docker-compose up --build
+
+# Or run in background
+docker-compose up -d --build
+```
+
+Access the applications:
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:8000
+- API Documentation: http://localhost:8000/docs
+
+#### Manual Setup
+
 ```bash
 # Start infrastructure
-docker-compose up -d
+docker-compose up postgres -d
 
 # Frontend
 cd frontend
-npm install
-npm run dev
+bun install
+bun run dev
 
 # Backend
 cd backend
 pip install -r requirements.txt
-uvicorn app.main:app --reload
+uvicorn main:app --reload
 ```
 
 ### Environment Variables
