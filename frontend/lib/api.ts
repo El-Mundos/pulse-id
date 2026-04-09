@@ -28,6 +28,18 @@ async function request<T>(
   return res.json();
 }
 
+// Setup
+export function getSetupStatus() {
+  return request<{ needs_setup: boolean }>("/setup/status");
+}
+
+export function completeSetup(name: string, email: string, password: string) {
+  return request<{ access_token: string; user_id: string; email: string; name: string }>(
+    "/setup/complete",
+    { method: "POST", body: JSON.stringify({ name, email, password }) }
+  );
+}
+
 // Auth
 export function login(email: string, password: string) {
   return request<{ access_token: string; user_id: string; email: string; name: string }>(
