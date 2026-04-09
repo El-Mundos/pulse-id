@@ -9,6 +9,7 @@ __pycache__/
 *.sqlite3
 
 # Node / frontend
+node_modules/
 frontend/.next/
 frontend/node_modules/
 frontend/.turbo/
