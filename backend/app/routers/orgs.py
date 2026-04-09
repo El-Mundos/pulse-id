@@ -81,5 +81,5 @@ async def get_organization_endpoint(
         id=organization.id,
         name=organization.name,
         owner_id=organization.owner_id,
-        members=members,
+        members=[MemberResponse.model_validate(m, from_attributes=True) for m in members],
     )

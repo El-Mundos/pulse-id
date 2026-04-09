@@ -4,11 +4,11 @@ import { useEffect, useState } from "react";
 import {
   ShieldCheck, LogOut, Plus, Users, Building2,
   CheckCircle2, Clock, UserX, ChevronRight, X,
-  Key, Eye, EyeOff, Trash2, KeyRound, Terminal, Lock,
+  Key, Eye, EyeOff, Trash2, KeyRound, Terminal, Lock, Settings, ExternalLink,
 } from "lucide-react";
 import {
   getMe, getOrg, createOrg, addMember, getTemplates, getMemberCredentials,
-  addCredential, deleteCredential, getMyCredentials,
+  addCredential, deleteCredential, getMyCredentials, initiateOAuth,
   type Member, type ServiceTemplate, type Credential, type FieldDef,
 } from "@/lib/api";
 
@@ -17,15 +17,16 @@ interface Org { id: string; name: string; owner_id: string; members: Member[] }
 
 // ── Credential type icons ─────────────────────────────────────────────────────
 const CRED_TYPE_META: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
-  api_custom: { label: "API Key", color: "text-indigo-400", icon: <Terminal className="w-3.5 h-3.5" /> },
-  manual:     { label: "Manual",  color: "text-amber-400",  icon: <Lock className="w-3.5 h-3.5" /> },
-  ssh:        { label: "SSH Key", color: "text-emerald-400",icon: <KeyRound className="w-3.5 h-3.5" /> },
+  api_custom: { label: "API Key",   color: "text-indigo-400",  icon: <Terminal className="w-3.5 h-3.5" /> },
+  manual:     { label: "Manual",    color: "text-amber-400",   icon: <Lock className="w-3.5 h-3.5" /> },
+  ssh:        { label: "SSH Key",   color: "text-emerald-400", icon: <KeyRound className="w-3.5 h-3.5" /> },
+  oauth2:     { label: "OAuth 2.0", color: "text-purple-400",  icon: <ExternalLink className="w-3.5 h-3.5" /> },
+  ldap:       { label: "LDAP",      color: "text-blue-400",    icon: <Settings className="w-3.5 h-3.5" /> },
 };
 
-// ── Service slug icons (emoji fallback) ───────────────────────────────────────
+// ── Service slug icons ────────────────────────────────────────────────────────
 const SLUG_EMOJI: Record<string, string> = {
-  aws: "☁️", github: "🐙", gitlab: "🦊", slack: "💬",
-  ssh: "🔑", manual: "🔒", custom_api: "⚡",
+  ssh: "🔑", manual: "🔒", custom_api: "⚡", oauth2: "🔐", ldap: "🗂️",
 };
 
 // ── Revealed secrets state ────────────────────────────────────────────────────
@@ -141,7 +142,18 @@ function CredentialCard({ cred, canDelete, onDelete }: {
   onDelete: (id: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [authorizing, setAuthorizing] = useState(false);
   const meta = CRED_TYPE_META[cred.credential_type] ?? CRED_TYPE_META.api_custom;
+
+  async function handleAuthorize() {
+    setAuthorizing(true);
+    try {
+      const { authorization_url } = await initiateOAuth(cred.organization_id, cred.id);
+      window.open(authorization_url, "_blank", "width=600,height=700");
+    } finally {
+      setAuthorizing(false);
+    }
+  }
 
   return (
     <div className="rounded-xl border border-slate-800 bg-[#0a0f1e] overflow-hidden">
@@ -160,6 +172,16 @@ function CredentialCard({ cred, canDelete, onDelete }: {
           )}
         </div>
         <div className="flex items-center gap-2">
+          {cred.credential_type === "oauth2" && (
+            <button
+              onClick={(e) => { e.stopPropagation(); handleAuthorize(); }}
+              disabled={authorizing}
+              className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-md border transition ${cred.oauth_authorized ? "border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10" : "border-purple-500/40 text-purple-400 hover:bg-purple-500/10"}`}
+            >
+              <ExternalLink className="w-3 h-3" />
+              {cred.oauth_authorized ? "Re-authorize" : "Authorize"}
+            </button>
+          )}
           <ChevronRight className={`w-4 h-4 text-slate-600 transition-transform ${expanded ? "rotate-90" : ""}`} />
           {canDelete && (
             <button
@@ -480,7 +502,7 @@ export default function DashboardPage() {
       getMe().catch(() => null),
       orgId ? getOrg(orgId).catch(() => null) : Promise.resolve(null),
     ]).then(([, o]) => {
-      if (o) setOrg(o);
+      if (o) { setOrg(o); localStorage.setItem("orgName", o.name); }
     }).finally(() => setLoading(false));
   }, []);
 
@@ -553,6 +575,15 @@ export default function DashboardPage() {
           </div>
           <div className="flex items-center gap-4">
             <span className="text-slate-500 text-sm hidden sm:block">{user?.email}</span>
+            {isAdmin && org && (
+              <a
+                href="/dashboard/settings"
+                className="flex items-center gap-1.5 text-slate-500 hover:text-slate-200 text-sm transition"
+              >
+                <Settings className="w-4 h-4" />
+                Settings
+              </a>
+            )}
             <button
               onClick={logout}
               className="flex items-center gap-1.5 text-slate-500 hover:text-slate-200 text-sm transition"

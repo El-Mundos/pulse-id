@@ -1,27 +1,35 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ShieldCheck, Zap, Lock, Eye, EyeOff, ArrowRight } from "lucide-react";
-import { login, register } from "@/lib/api";
+import { login, getSetupStatus } from "@/lib/api";
 
 export default function LoginPage() {
-  const [mode, setMode] = useState<"login" | "register">("login");
-  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [checking, setChecking] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    getSetupStatus()
+      .then((s) => {
+        if (s.needs_setup) {
+          window.location.href = "/setup";
+        } else {
+          setChecking(false);
+        }
+      })
+      .catch(() => setChecking(false));
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setLoading(true);
     try {
-      const data =
-        mode === "login"
-          ? await login(email, password)
-          : await register(name, email, password);
+      const data = await login(email, password);
       localStorage.setItem("token", data.access_token);
       localStorage.setItem("user", JSON.stringify({ id: data.user_id, email: data.email, name: data.name }));
       window.location.href = "/dashboard";
@@ -30,6 +38,17 @@ export default function LoginPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  if (checking) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#080d19]">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-8 h-8 rounded-full border-2 border-indigo-500/30 border-t-indigo-500 animate-spin" />
+          <p className="text-slate-500 text-sm font-mono">Connecting…</p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -118,31 +137,8 @@ export default function LoginPage() {
 
           {/* heading */}
           <div className="space-y-1">
-            <h2 className="text-2xl font-bold text-white tracking-tight">
-              {mode === "login" ? "Welcome back" : "Create account"}
-            </h2>
-            <p className="text-slate-500 text-sm">
-              {mode === "login"
-                ? "Sign in to your organization"
-                : "Set up your Pulse ID workspace"}
-            </p>
-          </div>
-
-          {/* tab toggle */}
-          <div className="flex rounded-lg bg-slate-800/60 border border-slate-700/50 p-1">
-            {(["login", "register"] as const).map((m) => (
-              <button
-                key={m}
-                onClick={() => { setMode(m); setError(null); }}
-                className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all duration-200 ${
-                  mode === m
-                    ? "bg-indigo-600 text-white shadow"
-                    : "text-slate-400 hover:text-slate-200"
-                }`}
-              >
-                {m === "login" ? "Sign in" : "Register"}
-              </button>
-            ))}
+            <h2 className="text-2xl font-bold text-white tracking-tight">Welcome back</h2>
+            <p className="text-slate-500 text-sm">Sign in to your organization</p>
           </div>
 
           {/* error */}
@@ -155,22 +151,6 @@ export default function LoginPage() {
 
           {/* form */}
           <form onSubmit={handleSubmit} className="space-y-4">
-            {mode === "register" && (
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">
-                  Full name
-                </label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="John Doe"
-                  required
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800/50 px-4 py-2.5 text-sm text-white placeholder-slate-600 outline-none transition focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50"
-                />
-              </div>
-            )}
-
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">
                 Email address
@@ -217,11 +197,11 @@ export default function LoginPage() {
               {loading ? (
                 <span className="flex items-center gap-2">
                   <span className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                  {mode === "login" ? "Signing in…" : "Creating account…"}
+                  Signing in…
                 </span>
               ) : (
                 <>
-                  {mode === "login" ? "Sign in" : "Create account"}
+                  Sign in
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}

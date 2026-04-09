@@ -6,3 +6,5 @@ aiosqlite
 python-dotenv
 bcrypt
 cryptography
+ldap3
+httpx
