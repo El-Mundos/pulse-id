@@ -5,13 +5,13 @@ FROM oven/bun:1
 WORKDIR /app
 
 # Copy package files
-COPY frontend/package*.json frontend/bun.lock ./
+COPY ./frontend/package*.json ./frontend/bun.lock ./
 
 # Install dependencies with Bun
 RUN bun install
 
 # Copy frontend code
-COPY frontend/ .
+COPY ./frontend .
 
 # Build the application
 RUN bun run build
