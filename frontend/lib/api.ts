@@ -181,3 +181,64 @@ export function deleteCredential(orgId: string, credentialId: string) {
 export function getMyCredentials() {
   return request<Credential[]>("/me/credentials");
 }
+
+// ── OAuth ─────────────────────────────────────────────────────────────────────
+
+export function initiateOAuth(orgId: string, credentialId: string) {
+  return request<{ authorization_url: string; state: string }>(
+    `/orgs/${orgId}/credentials/${credentialId}/oauth/initiate`,
+    { method: "POST" }
+  );
+}
+
+export function getOAuthStatus(orgId: string, credentialId: string) {
+  return request<{ authorized: boolean; token_type: string | null; scope: string | null }>(
+    `/orgs/${orgId}/credentials/${credentialId}/oauth/status`
+  );
+}
+
+// ── LDAP ──────────────────────────────────────────────────────────────────────
+
+export interface LdapConfig {
+  host: string;
+  port: number;
+  base_dn: string;
+  bind_dn: string;
+  bind_password: string;
+  use_ssl: boolean;
+  user_search_filter: string;
+  user_attributes: string[];
+}
+
+export interface LdapConfigResponse extends Omit<LdapConfig, "bind_password"> {}
+
+export function getLdapConfig(orgId: string) {
+  return request<LdapConfigResponse>(`/orgs/${orgId}/settings/ldap`);
+}
+
+export function saveLdapConfig(orgId: string, config: LdapConfig) {
+  return request<LdapConfigResponse>(`/orgs/${orgId}/settings/ldap`, {
+    method: "PUT",
+    body: JSON.stringify(config),
+  });
+}
+
+export function testLdapConnection(orgId: string) {
+  return request<{ success: boolean; message: string; user_count?: number; sample_users?: Record<string, string>[] }>(
+    `/orgs/${orgId}/settings/ldap/test`,
+    { method: "POST" }
+  );
+}
+
+// ── Org Settings ──────────────────────────────────────────────────────────────
+
+export interface OrgSettings {
+  organization_id: string;
+  ldap_configured: boolean;
+  ldap_config: LdapConfigResponse | null;
+  updated_at: string | null;
+}
+
+export function getOrgSettings(orgId: string) {
+  return request<OrgSettings>(`/orgs/${orgId}/settings`);
+}
